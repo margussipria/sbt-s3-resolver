@@ -17,18 +17,24 @@ This SBT plugin adds support for using Amazon S3 for resolving and publishing us
 
 Maven Style:
 
-    resolvers += "Example Snapshots" at "s3://maven.example.com/snapshots"
+```scala
+resolvers += "Example Snapshots" at "s3://maven.example.com/snapshots"
+```
 
 Ivy Style:
 
-    resolvers += Resolver.url("Example Snapshots", url("s3://maven.example.com/snapshots"))(Resolver.ivyStylePatterns)
+```scala
+resolvers += Resolver.url("Example Snapshots", url("s3://maven.example.com/snapshots"))(Resolver.ivyStylePatterns)
+```
 
 ### Publishing to S3
 
 Maven Style:
 
-    publishMavenStyle := true
-    publishTo := Some("Example Snapshots" at "s3://maven.example.com/snapshots")
+```scala
+publishMavenStyle := true
+publishTo := Some("Example Snapshots" at "s3://maven.example.com/snapshots")
+```
 
 Ivy Style:
 
@@ -107,7 +113,7 @@ s3CredentialsProvider := { (bucket: String) =>
 
 #### Environment Variables
 
-```
+```shell
 AWS_ACCESS_KEY_ID (or AWS_ACCESS_KEY)
 AWS_SECRET_KEY (or AWS_SECRET_ACCESS_KEY)
 AWS_ROLE_ARN
@@ -115,7 +121,7 @@ AWS_ROLE_ARN
 
 Example:
 
-```bash
+```shell
 # Basic Credentials
 AWS_ACCESS_KEY_ID="XXXXXX" AWS_SECRET_KEY="XXXXXX" sbt
 
@@ -126,7 +132,7 @@ AWS_ACCESS_KEY_ID="XXXXXX" AWS_SECRET_KEY="XXXXXX" AWS_ROLE_ARN="arn:aws:iam::12
 
 #### Java System Properties
 
-```
+```shell
 // Basic Credentials
 -Daws.accessKeyId=XXXXXX -Daws.secretKey=XXXXXX 
  
@@ -136,7 +142,7 @@ AWS_ACCESS_KEY_ID="XXXXXX" AWS_SECRET_KEY="XXXXXX" AWS_ROLE_ARN="arn:aws:iam::12
  
 Example:
  
-```bash
+```shell
 # Basic Credentials
 SBT_OPTS="-Daws.accessKeyId=XXXXXX -Daws.secretKey=XXXXXX" sbt
  
@@ -239,16 +245,16 @@ This is a simple example where a Host AWS Account, can create a Role with permis
   1. Host AWS Account, creates an IAM Role named "ClientAccessRole" with policy:
 ```json
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "arn:aws:iam::[Client AWS Account Id]:user/[Client User Name]"
-        },
-        "Action": "sts:AssumeRole"
-    }
-  ]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::[Client AWS Account Id]:user/[Client User Name]"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
 }
 ```
 
@@ -257,14 +263,14 @@ This is a simple example where a Host AWS Account, can create a Role with permis
 
 ```json
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": "sts:AssumeRole",
-      "Resource": "arn:aws:iam::[Host AWS Account Id]:role/ClientAccessRole"
-    }
-  ]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": "arn:aws:iam::[Host AWS Account Id]:role/ClientAccessRole"
+    }
+  ]
 }
 ```
 
