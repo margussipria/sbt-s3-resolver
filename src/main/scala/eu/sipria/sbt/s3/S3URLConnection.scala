@@ -1,19 +1,15 @@
-package fm.sbt.s3
+package eu.sipria.sbt.s3
 
-import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
-import fm.sbt.S3URLHandler
 import java.io.InputStream
 import java.net.{HttpURLConnection, URL}
 
-object S3URLConnection {
-  private val s3: S3URLHandler = new S3URLHandler()
-}
+import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
 
 /**
  * Implements an HttpURLConnection for compatibility with Coursier (https://github.com/coursier/coursier)
  */
-final class S3URLConnection(url: URL) extends HttpURLConnection(url) {
-  import S3URLConnection.s3
+final class S3URLConnection(url: URL, options: S3ResolverOptions) extends HttpURLConnection(url) {
+  private val s3: S3URLHandler = new S3URLHandler(options)
 
   private trait S3Response extends AutoCloseable {
     def meta: ObjectMetadata
@@ -60,15 +56,15 @@ final class S3URLConnection(url: URL) extends HttpURLConnection(url) {
     if (!connected) connect()
 
     field.toLowerCase match {
-      case "content-type" => response.map{ _.meta.getContentType }.orNull
-      case "content-encoding" => response.map{ _.meta.getContentEncoding }.orNull
-      case "content-length" => response.map{ _.meta.getContentLength.toString }.orNull
-      case "last-modified" => response.map{ _.meta.getLastModified.getTime.toString }.orNull
+      case "content-type" => response.map(_.meta.getContentType).orNull
+      case "content-encoding" => response.map(_.meta.getContentEncoding).orNull
+      case "content-length" => response.map(_.meta.getContentLength.toString).orNull
+      case "last-modified" => response.map(_.meta.getLastModified.getTime.toString).orNull
       case _ => ""
     }
   }
 
   override def disconnect(): Unit = {
-    response.foreach{ _.close() }
+    response.foreach(_.close)
   }
 }

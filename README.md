@@ -1,6 +1,4 @@
-# Frugal Mechanic SBT S3 Resolver
-
-[![Build Status](https://travis-ci.org/frugalmechanic/fm-sbt-s3-resolver.svg?branch=master)](https://travis-ci.org/frugalmechanic/fm-sbt-s3-resolver)
+# SBT S3 Resolver
 
 This SBT plugin adds support for using Amazon S3 for resolving and publishing using s3:// urls.
 
@@ -11,8 +9,6 @@ This SBT plugin adds support for using Amazon S3 for resolving and publishing us
   * [IAM Policy Examples](#iam)
   * [IAM Role Examples](#iam-role)
   * [S3 Server-Side Encryption](#server-side-encryption)
-  * [Authors](#authors)
-  * [Copyright](#copyright)
   * [License](#license)
 
 ## <a name="example"></a>Example
@@ -21,34 +17,34 @@ This SBT plugin adds support for using Amazon S3 for resolving and publishing us
 
 Maven Style:
 
-    resolvers += "FrugalMechanic Snapshots" at "s3://maven.frugalmechanic.com/snapshots"
+    resolvers += "Example Snapshots" at "s3://maven.example.com/snapshots"
 
 Ivy Style:
 
-    resolvers += Resolver.url("FrugalMechanic Snapshots", url("s3://maven.frugalmechanic.com/snapshots"))(Resolver.ivyStylePatterns)
+    resolvers += Resolver.url("Example Snapshots", url("s3://maven.example.com/snapshots"))(Resolver.ivyStylePatterns)
 
 ### Publishing to S3
 
 Maven Style:
 
     publishMavenStyle := true
-    publishTo := Some("FrugalMechanic Snapshots" at "s3://maven.frugalmechanic.com/snapshots")
+    publishTo := Some("Example Snapshots" at "s3://maven.example.com/snapshots")
 
 Ivy Style:
 
     publishMavenStyle := false
-    publishTo := Some("FrugalMechanic Snapshots" at "s3://maven.frugalmechanic.com/snapshots")
+    publishTo := Some("Example Snapshots" at "s3://maven.example.com/snapshots")
 
 ### Valid s3:// URL Formats
 
 The examples above are using the [Static Website Using a Custom Domain](http://docs.aws.amazon.com/AmazonS3/latest/dev/website-hosting-custom-domain-walkthrough.html) functionality of S3.
 
-These would also be equivalent (for the **maven.frugalmechanic.com** bucket):
+These would also be equivalent (for the **maven.example.com** bucket):
 
-    s3://s3-us-west-2.amazonaws.com/maven.frugalmechanic.com/snapshots
-    s3://maven.frugalmechanic.com.s3-us-west-2.amazonaws.com/snapshots
-    s3://maven.frugalmechanic.com.s3.amazonaws.com/snapshots
-    s3://s3.amazonaws.com/maven.frugalmechanic.com/snapshots
+    s3://s3-us-west-2.amazonaws.com/maven.example.com/snapshots
+    s3://maven.example.com.s3-us-west-2.amazonaws.com/snapshots
+    s3://maven.example.com.s3.amazonaws.com/snapshots
+    s3://s3.amazonaws.com/maven.example.com/snapshots
 
 All of these forms should work:
 
@@ -60,94 +56,105 @@ All of these forms should work:
 
 ## <a name="usage"></a>Usage
 
-### Add this to your project/plugins.sbt file:
+### Plugin sbt dependency
 
-    addSbtPlugin("com.frugalmechanic" % "fm-sbt-s3-resolver" % "0.11.0")
+In `project/plugins.sbt`:
+
+```scala
+addSbtPlugin("eu.sipria.sbt" % "sbt-s3-resolver" % "0.12.0")
+```
+
+For SBT Plugins use `project/project/plugins.sbt`
+
+### Setting keys
+
+* `awsProfile`: AWS credentials profile (for default `s3credentials` implementation)
+* `s3region`: AWS Region for your S3 resolvers
+* `s3sse`: Controls whether publishing resolver will use server side encryption (can be forced with policy)
+* `kmsCustomerMasterKeyID`: Custom KMS Customer master Key ID for SSE
+* `s3CredentialsProvider`: AWS credentials provider to access S3
+
+|                      Key | Type                               | Default                   |
+|-------------------------:|:----------------------------------:|:--------------------------|
+|             `awsProfile` | `String`                           | `"default"`               |
+|               `s3region` | `Option[Region]`                   | `None`                    |
+|                  `s3sse` | `Boolean`                          | `false`                   |
+| `kmsCustomerMasterKeyID` | `Option[String]`                   | `None`                    |
+|  `s3CredentialsProvider` | `String => AWSCredentialsProvider` |                           |
+
+```scala
+import com.amazonaws.services.s3.model.Region
+import com.amazonaws.auth.AWSCredentialsProvider
+```
 
 ### S3 Credentials
 
-S3 Credentials are checked **in the following places and _order_** (e.g. bucket specific settings (\~/.sbt/.&lt;bucket_name&gt;_s3credentials) get resolved before global settings (\~/.sbt/.s3credentials)):
+S3 Credentials are checked **in the following places and _order_**:
 
-#### Bucket Specific Environment Variables
+Default implementation for `s3CredentialsProvider`:
 
-    AWS_ACCESS_KEY_ID_<BUCKET_NAME> -or- <BUCKET_NAME>_AWS_ACCESS_KEY_ID
-    AWS_SECRET_KEY_<BUCKET_NAME> -or- <BUCKET_NAME>_AWS_SECRET_KEY
-    
-**NOTE** - The following transforms are applied to the bucket name before looking up the environment variable:
-
-1. The name is upper-cased
-2. Dots (.) and dashes (-) are replaced with an underscore (_)
-3. Everything other than A-Z, 0-9, and underscores are removed.
-  
-Example:
-
-The bucket name "maven.frugalmechanic.com" becomes "MAVEN\_FRUGALMECHANIC\_COM":
-
-    AWS_ACCESS_KEY_ID_MAVEN_FRUGALMECHANIC_COM="XXXXXX" AWS_SECRET_KEY_MAVEN_FRUGALMECHANIC_COM="XXXXXX" sbt
-
-#### Bucket Specific Java System Properties
-
-    -Daws.accessKeyId.<bucket_name>=XXXXXX -Daws.secretKey.<bucket_name>=XXXXXX
-    -D<bucket_name>.aws.accessKeyId=XXXXXX -D<bucket_name>.aws.secretKey=XXXXXX
-    
-Example:
-
-    SBT_OPTS="-Daws.accessKeyId.maven.frugalmechanic.com=XXXXXX -Daws.secretKey.maven.frugalmechanic.com=XXXXXX" sbt
-
-#### Bucket Specific Property Files
-
-    ~/.sbt/.<bucket_name>_s3credentials
-    ~/.sbt/.s3credentials_<bucket_name>
+```scala
+s3CredentialsProvider := { (bucket: String) =>
+  new AWSCredentialsProviderChain(
+    new EnvironmentVariableCredentialsProvider,
+    new SystemPropertiesCredentialsProvider,
+    new ProfileCredentialsProvider(awsProfile.value),
+    new EC2ContainerCredentialsProviderWrapper,
+    new ProfileCredentialsProvider(bucket)
+  )
+    },
+```
 
 #### Environment Variables
 
-    AWS_ACCESS_KEY_ID (or AWS_ACCESS_KEY)
-    AWS_SECRET_KEY (or AWS_SECRET_ACCESS_KEY)
-    AWS_ROLE_ARN
+```
+AWS_ACCESS_KEY_ID (or AWS_ACCESS_KEY)
+AWS_SECRET_KEY (or AWS_SECRET_ACCESS_KEY)
+AWS_ROLE_ARN
+```
 
 Example:
 
-    // Basic Credentials
-    AWS_ACCESS_KEY_ID="XXXXXX" AWS_SECRET_KEY="XXXXXX" sbt
+```bash
+# Basic Credentials
+AWS_ACCESS_KEY_ID="XXXXXX" AWS_SECRET_KEY="XXXXXX" sbt
 
-    // IAM Role Credentials
-    AWS_ACCESS_KEY_ID="XXXXXX" AWS_SECRET_KEY="XXXXXX" AWS_ROLE_ARN="arn:aws:iam::123456789012:role/RoleName" sbt
+# IAM Role Credentials
+AWS_ACCESS_KEY_ID="XXXXXX" AWS_SECRET_KEY="XXXXXX" AWS_ROLE_ARN="arn:aws:iam::123456789012:role/RoleName" sbt
+```
+
 
 #### Java System Properties
 
-    // Basic Credentials
-    -Daws.accessKeyId=XXXXXX -Daws.secretKey=XXXXXX 
-
-    // IAM Role
-    -Daws.accessKeyId=XXXXXX -Daws.secretKey=XXXXXX -Daws.arnRole=arn:aws:iam::123456789012:role/RoleName
-
-
+```
+// Basic Credentials
+-Daws.accessKeyId=XXXXXX -Daws.secretKey=XXXXXX 
+ 
+// IAM Role
+-Daws.accessKeyId=XXXXXX -Daws.secretKey=XXXXXX -Daws.arnRole=arn:aws:iam::123456789012:role/RoleName
+```
+ 
 Example:
  
-    // Basic Credentials
-    SBT_OPTS="-Daws.accessKeyId=XXXXXX -Daws.secretKey=XXXXXX" sbt
-
-    // IAM Role Credentials
-    SBT_OPTS="-Daws.accessKeyId=XXXXXX -Daws.secretKey=XXXXXX -Daws.arnRole=arn:aws:iam::123456789012:role/RoleName" sbt
-
-#### Property File
-  
-    ~/.sbt/.s3credentials
-    
-The property files should have the following format:
-  
-    accessKey = XXXXXXXXXX
-    secretKey = XXXXXXXXXX
-    // Optional IAM Role
-    roleArn = arn:aws:iam::123456789012:role/RoleName
-
+```bash
+# Basic Credentials
+SBT_OPTS="-Daws.accessKeyId=XXXXXX -Daws.secretKey=XXXXXX" sbt
+ 
+# IAM Role Credentials
+SBT_OPTS="-Daws.accessKeyId=XXXXXX -Daws.secretKey=XXXXXX -Daws.arnRole=arn:aws:iam::123456789012:role/RoleName" sbt
+```
+ 
 ## <a name="iam"></a>IAM Policy Examples
 
-I recommend that you create IAM Credentials for reading/writing your Maven S3 Bucket.  Here are some examples for our **maven.frugalmechanic.com** bucket:
+I recommend that you create IAM Credentials for reading/writing your Maven S3 Bucket.  
 
-### Read/Write Policy (for publishing)
 
-<pre>
+
+Here are some examples for **maven.example.com** bucket:
+
+### Publishing Policy (Read/Write)
+
+```json
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -159,20 +166,20 @@ I recommend that you create IAM Credentials for reading/writing your Maven S3 Bu
     {
       "Effect": "Allow",
       "Action": ["s3:ListBucket"],
-      "Resource": ["arn:aws:s3:::<b>maven.frugalmechanic.com</b>"]
+      "Resource": ["arn:aws:s3:::maven.example.com"]
     },
     {
       "Effect": "Allow",
       "Action": ["s3:DeleteObject","s3:GetObject","s3:PutObject"],
-      "Resource": ["arn:aws:s3:::<b>maven.frugalmechanic.com</b>/*"]
+      "Resource": ["arn:aws:s3:::maven.example.com/*"]
     }
   ]
 }
-</pre>
+```
 
 ### Read-Only Policy
 
-<pre>
+```json
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -184,20 +191,20 @@ I recommend that you create IAM Credentials for reading/writing your Maven S3 Bu
     {
       "Effect": "Allow",
       "Action": ["s3:ListBucket"],
-      "Resource": ["arn:aws:s3:::<b>maven.frugalmechanic.com</b>"]
+      "Resource": ["arn:aws:s3:::maven.example.com"]
     },
     {
       "Effect": "Allow",
       "Action": ["s3:GetObject"],
-      "Resource": ["arn:aws:s3:::<b>maven.frugalmechanic.com</b>/*"]
+      "Resource": ["arn:aws:s3:::maven.example.com/*"]
     }
   ]
 }
-</pre>
+```
 
-### Releases Read-Only, Snapshots Read/Write
+### Releases Read-Only with Snapshots Publishing (Read/Write)
 
-<pre>
+```json
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -209,55 +216,57 @@ I recommend that you create IAM Credentials for reading/writing your Maven S3 Bu
     {
       "Effect": "Allow",
       "Action": ["s3:ListBucket"],
-      "Resource": ["arn:aws:s3:::<b>maven.frugalmechanic.com</b>"]
+      "Resource": ["arn:aws:s3:::maven.example.com"]
     },
     {
       "Effect": "Allow",
       "Action": ["s3:GetObject"],
-      "Resource": ["arn:aws:s3:::<b>maven.frugalmechanic.com</b>/<b>releases</b>/*"]
+      "Resource": ["arn:aws:s3:::maven.example.com/releases/*"]
     },
     {
       "Effect": "Allow",
       "Action": ["s3:DeleteObject","s3:GetObject","s3:PutObject"],
-      "Resource": ["arn:aws:s3:::<b>maven.frugalmechanic.com</b>/<b>snapshots</b>/*"]
+      "Resource": ["arn:aws:s3:::maven.example.com/snapshots/*"]
     }
   ]
 }
-</pre>
+```
 
 ## <a name="iam-role"></a>IAM Role Policy Examples
 
 This is a simple example where a Host AWS Account, can create a Role with permissions for a Client AWS Account to access the Host maven bucket.
 
   1. Host AWS Account, creates an IAM Role named "ClientAccessRole" with policy:
-<pre>
+```json
 {
-&nbsp;&nbsp;"Version": "2012-10-17",
-&nbsp;&nbsp;"Statement": [
-&nbsp;&nbsp;  {
-&nbsp;&nbsp;    "Effect": "Allow",
-&nbsp;&nbsp;    "Principal": {
-&nbsp;&nbsp;      "AWS": "arn:aws:iam::[Client AWS Account Id]:user/[Client User Name]"
-&nbsp;&nbsp;      },
-&nbsp;&nbsp;      "Action": "sts:AssumeRole"
-&nbsp;&nbsp;  }
-&nbsp;&nbsp;]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::[Client AWS Account Id]:user/[Client User Name]"
+        },
+        "Action": "sts:AssumeRole"
+    }
+  ]
 }
-</pre>
+```
+
   2. Associate the proper [IAM Policy Examples](#iam) to the Host Role
   3. Client AWS Account needs to create an AWS IAM User [Client User Name] and associated a policy to gives it permissions to AssumeRole from the Host AWS Account:
-<pre>
+
+```json
 {
-&nbsp;&nbsp;"Version": "2012-10-17",
-&nbsp;&nbsp;"Statement": [
-&nbsp;&nbsp;  {
-&nbsp;&nbsp;    "Effect": "Allow",
-&nbsp;&nbsp;    "Action": "sts:AssumeRole",
-&nbsp;&nbsp;    "Resource": "arn:aws:iam::[Host AWS Account Id]:role/ClientAccessRole"
-&nbsp;&nbsp;  }
-&nbsp;&nbsp;]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": "arn:aws:iam::[Host AWS Account Id]:role/ClientAccessRole"
+    }
+  ]
 }
-</pre>
+```
 
 ## <a name="server-side-encryption"></a>S3 Server-Side Encryption
 S3 supports <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html">server side encryption</a>.
@@ -299,14 +308,6 @@ Example:
   ]
 }
 ```
-
-## <a name="authors"></a>Authors
-
-Tim Underwood (<a href="https://github.com/tpunder" rel="author">GitHub</a>, <a href="https://www.linkedin.com/in/tpunder" rel="author">LinkedIn</a>, <a href="https://twitter.com/tpunder" rel="author">Twitter</a>, <a href="https://plus.google.com/+TimUnderwood0" rel="author">Google Plus</a>)
-
-## <a name="copyright"></a>Copyright
-
-Copyright [Frugal Mechanic](http://frugalmechanic.com)
 
 ## <a name="license"></a>License
 

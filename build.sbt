@@ -1,14 +1,17 @@
-name := "fm-sbt-s3-resolver"
-
-organization := "com.frugalmechanic"
+name := "sbt-s3-resolver"
 
 version := "0.12.0-SNAPSHOT"
 
 description := "SBT S3 Resolver Plugin"
 
+homepage := Some(url("https://github.com/margussipria/sbt-s3-resolver"))
 licenses := Seq("Apache License, Version 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt"))
 
-homepage := Some(url("https://github.com/frugalmechanic/sbt-s3-resolver"))
+organization := "eu.sipria.sbt"
+organizationName := "None"
+organizationHomepage := Some(url("https://github.com/margussipria"))
+
+javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
 
 scalacOptions := Seq(
   "-encoding", "UTF-8",
@@ -17,57 +20,43 @@ scalacOptions := Seq(
   "-language:implicitConversions",
   "-feature",
   "-Xlint"
-) ++ (if (scalaVersion.value.startsWith("2.11")) Seq(
-  // Scala 2.11 specific compiler flags
-  "-Ywarn-unused-import"
-) else Nil) ++ (if (scalaVersion.value.startsWith("2.12")) Seq(
-  // Scala 2.12 specific compiler flags
-  "-opt:l:project"
-) else Nil)
+) ++ {
+  val Scala2_10 = (2, 10)
+  val Scala2_11 = (2, 11)
+  val Scala2_12 = (2, 12)
 
-sbtPlugin := true
-
-EclipseKeys.withSource := true
-
-// Don't use the default "target" directory (which is what SBT uses)
-EclipseKeys.eclipseOutput := Some(".target")
-
-val amazonSDKVersion = "1.11.125"
-
-libraryDependencies ++= Seq(
-  "com.amazonaws" % "aws-java-sdk-s3" % amazonSDKVersion,
-  "com.amazonaws" % "aws-java-sdk-sts" % amazonSDKVersion,
-  "org.apache.ivy" % "ivy" % "2.3.0"
-)
-
-publishMavenStyle := true
-
-publishTo := {
-  val nexus = "https://oss.sonatype.org/"
-  if (version.value.trim.endsWith("SNAPSHOT")) {
-    Some("snapshots" at nexus + "content/repositories/snapshots")
-  } else {
-    Some("releases" at nexus + "service/local/staging/deploy/maven2")
+  CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some(Scala2_10) => Seq.empty
+    case Some(Scala2_11) => Seq(
+      "-Ywarn-unused-import"
+    )
+    case Some(Scala2_12) => Seq(
+      "-opt:l:project"
+    )
+    case _ => throw new Exception("Unknown Scala version")
   }
 }
 
-publishArtifact in Test := false
+sbtPlugin := true
 
-pomIncludeRepository := { _ => false }
+val AmazonSDKVersion = "1.11.125"
 
-pomExtra := (
-  <developers>
-    <developer>
-      <id>tim</id>
-      <name>Tim Underwood</name>
-      <email>tim@eluvio.com</email>
-      <organization>Eluvio</organization>
-      <organizationUrl>https://www.eluvio.com</organizationUrl>
-    </developer>
-  </developers>
-  <scm>
-      <connection>scm:git:git@github.com:frugalmechanic/sbt-s3-resolver.git</connection>
-      <developerConnection>scm:git:git@github.com:frugalmechanic/sbt-s3-resolver.git</developerConnection>
-      <url>git@github.com:frugalmechanic/sbt-s3-resolver.git</url>
-  </scm>)
+def amazonSDK(artifactId: String) = {
+  "com.amazonaws" % artifactId % AmazonSDKVersion
+}
 
+libraryDependencies ++= Seq(
+  amazonSDK("aws-java-sdk-s3"),
+  amazonSDK("aws-java-sdk-sts"),
+  "org.apache.ivy" % "ivy" % "2.3.0"
+)
+
+developers := List(
+  Developer("margussipria", "Margus Sipria", "margus+ssbt-s3-resolver@sipria.fi", url("https://github.com/margussipria"))
+)
+
+scmInfo := Some(ScmInfo(
+  browseUrl = url("http://github.com/margussipria/sbt-s3-resolver"),
+  connection = "scm:git:https://github.com/margussipria/sbt-s3-resolver.git",
+  devConnection = Some("scm:git:git@github.com:margussipria/sbt-s3-resolver.git")
+))
